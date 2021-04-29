@@ -13,14 +13,25 @@ void* T3 (void*arg);
 void* T4 (void*arg);
 void* Scheduler (void*arg);
 
-sem_t Lock1, Lock2, Lock3, Lock4; 
+pthread_mutex_t Lock1, Lock2, Lock3, Lock4; 
+
+pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond3 = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond4 = PTHREAD_COND_INITIALIZER;
  
     int main(int argc, const char * argv[]) {
 
-    sem_init(&Lock1,0,1);
-    sem_init(&Lock2,0,0);
-    sem_init(&Lock3,0,0);
-    sem_init(&Lock4,0,0);
+
+    pthread_mutex_init(&Lock1, NULL);
+    pthread_mutex_init(&Lock2, NULL);
+    pthread_mutex_init(&Lock3, NULL);
+    pthread_mutex_init(&Lock4, NULL);
+
+    pthread_mutex_lock(&Lock2); 
+    pthread_mutex_lock(&Lock3); 
+    pthread_mutex_lock(&Lock4); 
+    
 
     pthread_t ptid1, ptid2, ptid3, ptid4, scheduler1;
 
@@ -43,7 +54,8 @@ sem_t Lock1, Lock2, Lock3, Lock4;
     pthread_join(ptid2,NULL);
     pthread_join(ptid3,NULL);
     pthread_join(ptid4,NULL);
-    pthread_join(scheduler1,NULL);
+
+    //pthread_join(scheduler1,NULL);
     pthread_exit(NULL);
 
     return 0;
@@ -52,41 +64,62 @@ sem_t Lock1, Lock2, Lock3, Lock4;
 // Thread function
 void* Scheduler (void*arg)
 {
-  //wake up every time unit and 
-
-
+  while(clock()%10000 != 0)
+  {
+    if(clock()%50 == 0)
+    {
+      cout << "T1 gets called. \n";
+      pthread_cond_signal(&cond1); 
+    }
+    if(clock()%100 == 0)
+    {
+      cout << "T2 gets called. \n";
+      pthread_cond_signal(&cond2); 
+    }
+    if(clock()%200 == 0)
+    {
+      cout << "T3 gets called. \n";
+      pthread_cond_signal(&cond3); 
+    }
+    if(clock()%800 == 0)
+    {
+      cout << "T4 gets called. \n";
+      pthread_cond_signal(&cond4); 
+    }
+  }
   pthread_exit(NULL);
 }
 
 void* T1 (void*arg)
 {
-  sem_wait(&Lock1); 
-  cout << "Thread 1 \n";
-  sem_post(&Lock2); 
-  pthread_exit(NULL);
+    pthread_cond_wait(&cond1, &Lock1); 
+    cout << "Thread 1 \n";
+    cout << "Are we changing anything? \n";
+    pthread_mutex_unlock(&Lock2); 
+    pthread_exit(NULL);
 }
 
 void* T2 (void*arg)
 {
-  sem_wait(&Lock2); 
+  pthread_cond_wait(&cond2, &Lock2); 
   cout << "Thread 2 \n";
-  sem_post(&Lock3);   
+  pthread_mutex_unlock(&Lock3);   
   pthread_exit(NULL);
 }
 
 void* T3 (void*arg)
 {
-  sem_wait(&Lock3);
+  pthread_cond_wait(&cond3, &Lock3); 
   cout << "Thread 3 \n";
-  sem_post(&Lock4); 
+  pthread_mutex_unlock(&Lock4); 
   pthread_exit(NULL);
 }
 
 void* T4 (void*arg)
 {
-  sem_wait(&Lock4);
+  pthread_cond_wait(&cond4, &Lock4); 
   cout << "Thread 4 \n";
-  sem_post(&Lock1);
+  pthread_mutex_unlock(&Lock1);
   pthread_exit(NULL);
 }
 
