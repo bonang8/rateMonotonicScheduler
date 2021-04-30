@@ -208,3 +208,31 @@ void* T4 (void*arg)
   pthread_exit(NULL);
 }
 
+void doWork()
+{
+  int matrix[10][10]; 
+  //randomly generate a matrix to "do work" on
+  for(int i = 0;i < 10;++i)
+  {
+    for(int j = 0;j < 10;++j)
+    {
+      matrix[i][j] = rand() % 10 + 1; 
+    }
+  }
+
+  int startingValue1, startingValue2; 
+  //iterate through and set the values
+  for(int i = 0; i < 10; ++i)
+  {
+    startingValue1 = 0; 
+    startingValue2 = 5; 
+    while(startingValue1 < 5)
+    {
+      matrix[i][startingValue1] *= matrix[i][startingValue2]; 
+      matrix[i][startingValue2] = matrix[i][startingValue1]; 
+      startingValue1++; 
+      startingValue2++; 
+    }    
+  }
+}
+
