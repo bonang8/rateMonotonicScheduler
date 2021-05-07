@@ -1,18 +1,23 @@
+#define MACOS // enables macOS thread processor affinity // delete this
 #include <thread>
 #include <iostream>
 #include <chrono>
+#include <unistd.h> // defines usleep
 #include <semaphore.h> // have to use named semaphores on macOS
-#include <unistd.h> // sleep
-
+//#define LINUX // uncomment this when running on linux
 using std::chrono::milliseconds;
 using namespace std;
-
 void* T1 (void*arg);
 void* T2 (void*arg);
 void* T3 (void*arg);
 void* T4 (void*arg);
 void* Scheduler (void*arg);
 void doWork();
+int countIterations1 = 0;
+int countIterations2 = 0;
+int countIterations3 = 0;
+int countIterations4 = 0;
+
 pthread_mutex_t Lock1, Lock2, Lock3, Lock4;
 
 sem_t * semaphore_1 = NULL; // protects the shared resource
@@ -32,7 +37,9 @@ int fifo_min_priority = sched_get_priority_min(SCHED_FIFO);
 bool run = true;
 
     int main(int argc, const char * argv[]) {
-
+    // cpu id:: identifies the cup that you are going to run
+    int cpuID = 0;
+    
     // Set all to 0, because scheduler will go first and set them to 1
     semaphore_1 = sem_open("/semaphore_1",O_CREAT, S_IRUSR | S_IWUSR, 0);
     semaphore_2 = sem_open("/semaphore_2",O_CREAT, S_IRUSR | S_IWUSR, 0);
@@ -53,8 +60,23 @@ bool run = true;
         pthread_attr_setschedparam(&thread_scheduler_attribute1, &fifo_parameter1);
         // schedule all the threads on a per process basis rather than system wide
         pthread_attr_setscope(&thread_scheduler_attribute1, PTHREAD_SCOPE_PROCESS);
+#if defined(LINUX)
+        // Linux-specific thread-affinity code; use #define LINUX to enable this block of code.
+           // declares a set of processors that the threads can run on;
+           // only processor zero will be in the set
+           cpu_set_t cpu_set;
+           // sets all processors to zero; no processors in the set currently
+           CPU_ZERO(&cpu_set);
+           // adds processor zero to set (cpuID = 0)
+           CPU_SET(cpuID, &cpu_set);
+           // adds the cpu set to the threads attributes
+           pthread_attr_setaffinity_np(&thread_scheduler_attribute1, sizeof(cpu_set_t), &cpu_set);
+#endif
+        
     if (pthread_create(&ptid1, &thread_scheduler_attribute1, T1,NULL) != 0)
             printf("Failed to create thread1\n");
+        
+        
     // Thread 2
         pthread_attr_t thread_scheduler_attribute2;
         pthread_attr_init(&thread_scheduler_attribute2);
@@ -65,8 +87,24 @@ bool run = true;
         pthread_attr_setschedparam(&thread_scheduler_attribute2, &fifo_parameter2);
         // schedule all the threads on a per process basis rather than system wide
         pthread_attr_setscope(&thread_scheduler_attribute2, PTHREAD_SCOPE_PROCESS);
+     // Linux
+#if defined(LINUX)
+        // Linux-specific thread-affinity code; use #define LINUX to enable this block of code.
+           // declares a set of processors that the threads can run on;
+           // only processor zero will be in the set
+           cpu_set_t cpu_set;
+           // sets all processors to zero; no processors in the set currently
+           CPU_ZERO(&cpu_set);
+           // adds processor zero to set (cpuID = 0)
+           CPU_SET(cpuID, &cpu_set);
+           // adds the cpu set to the threads attributes
+           pthread_attr_setaffinity_np(&thread_scheduler_attribute2, sizeof(cpu_set_t), &cpu_set);
+#endif
     if (pthread_create(&ptid2, &thread_scheduler_attribute2, T2,NULL) != 0)
             printf("Failed to create thread1\n");
+        
+        
+        
     // Thread 3
         pthread_attr_t thread_scheduler_attribute3;
         pthread_attr_init(&thread_scheduler_attribute3);
@@ -77,8 +115,23 @@ bool run = true;
         pthread_attr_setschedparam(&thread_scheduler_attribute3, &fifo_parameter3);
         // schedule all the threads on a per process basis rather than system wide
         pthread_attr_setscope(&thread_scheduler_attribute3, PTHREAD_SCOPE_PROCESS);
+     // Linux
+#if defined(LINUX)
+        // Linux-specific thread-affinity code; use #define LINUX to enable this block of code.
+           // declares a set of processors that the threads can run on;
+           // only processor zero will be in the set
+           cpu_set_t cpu_set;
+           // sets all processors to zero; no processors in the set currently
+           CPU_ZERO(&cpu_set);
+           // adds processor zero to set (cpuID = 0)
+           CPU_SET(cpuID, &cpu_set);
+           // adds the cpu set to the threads attributes
+           pthread_attr_setaffinity_np(&thread_scheduler_attribute3, sizeof(cpu_set_t), &cpu_set);
+#endif
     if (pthread_create(&ptid3, &thread_scheduler_attribute3, T3,NULL) != 0)
             printf("Failed to create thread1\n");
+        
+        
     // Thread 4
         pthread_attr_t thread_scheduler_attribute4;
         pthread_attr_init(&thread_scheduler_attribute4);
@@ -89,8 +142,23 @@ bool run = true;
         pthread_attr_setschedparam(&thread_scheduler_attribute4, &fifo_parameter4);
         // schedule all the threads on a per process basis rather than system wide
         pthread_attr_setscope(&thread_scheduler_attribute4, PTHREAD_SCOPE_PROCESS);
+    // Linux
+#if defined(LINUX)
+        // Linux-specific thread-affinity code; use #define LINUX to enable this block of code.
+           // declares a set of processors that the threads can run on;
+           // only processor zero will be in the set
+           cpu_set_t cpu_set;
+           // sets all processors to zero; no processors in the set currently
+           CPU_ZERO(&cpu_set);
+           // adds processor zero to set (cpuID = 0)
+           CPU_SET(cpuID, &cpu_set);
+           // adds the cpu set to the threads attributes
+           pthread_attr_setaffinity_np(&thread_scheduler_attribute4, sizeof(cpu_set_t), &cpu_set);
+#endif
     if (pthread_create(&ptid4, &thread_scheduler_attribute4, T4,NULL) != 0)
             printf("Failed to create thread1\n");
+        
+        
     // Thread Scheduler
         pthread_attr_t thread_scheduler_attributeS;
         pthread_attr_init(&thread_scheduler_attributeS);
@@ -102,137 +170,137 @@ bool run = true;
         pthread_attr_setschedparam(&thread_scheduler_attributeS, &fifo_parameterS);
         // schedule all the threads on a per process basis rather than system wide
         pthread_attr_setscope(&thread_scheduler_attributeS, PTHREAD_SCOPE_PROCESS);
+    //  Linux
+#if defined(LINUX)
+        // Linux-specific thread-affinity code; use #define LINUX to enable this block of code.
+           // declares a set of processors that the threads can run on;
+           // only processor zero will be in the set
+           cpu_set_t cpu_set;
+           // sets all processors to zero; no processors in the set currently
+           CPU_ZERO(&cpu_set);
+           // adds processor zero to set (cpuID = 0)
+           CPU_SET(cpuID, &cpu_set);
+           // adds the cpu set to the threads attributes
+           pthread_attr_setaffinity_np(&thread_scheduler_attributeS, sizeof(cpu_set_t), &cpu_set);
+#endif
     if (pthread_create(&scheduler1, &thread_scheduler_attributeS, Scheduler,NULL) != 0)
             printf("Failed to create thread1\n");
+        
     // join threads
     pthread_join(ptid1,NULL);
     pthread_join(ptid2,NULL);
     pthread_join(ptid3,NULL);
     pthread_join(ptid4,NULL);
     pthread_join(scheduler1,NULL);
-    pthread_exit(NULL);
-
+    cout << "T3 Iterations: " << countIterations3 << endl << flush;
+        usleep(100000);
+   // pthread_exit(NULL);
+        cout << "exiting main" << endl << flush;
     return 0;
 }
 
 // Thread function
 void* Scheduler (void*arg)
 {
-    // Diag:
-    cout << "Herrrro" << endl;
-  int count = 0;
-  while(clock()%10000 != 0)
-  {
-      cout << "In scheduluer while loop" << endl;
-    if(clock()%50 == 0)
-    {
-      cout << "T1 gets called. \n";
-      cout << "Signaling Thread1 " << endl;
-      sem_post(semaphore_1);
-    }
-    if(clock()%100 == 0)
-    {
-      cout << "T2 gets called. \n";
-      cout << "Signaling Thread2 " << endl;
-        sem_post(semaphore_2);
-    }
-    if(clock()%200 == 0)
-    {
-      cout << "T3 gets called. \n";
-      cout << "Signaling Thread3 " << endl;
-        sem_post(semaphore_3);
-    }
-    if(clock()%800 == 0)
-    {
-      cout << "T4 gets called. \n";
-      cout << "Signaling Thread4 " << endl;
-        sem_post(semaphore_4);
-    }
-    count++;
-      // changed # from 10 to 1000 for now
-    if(count > 1000)
-    {
-        run = false;
-        break;
-    }
+    const int maxIterations = 10;
+    const int numTimeUnits = 16;
+    const int timePeriodInMilliseconds = 100;
+  for(int i = 0; i < maxIterations; i++)
+   {
+       for(int j = 0; j < numTimeUnits; j++)
+       {
+           // thread T1 has to run every time period
+           sem_post(semaphore_1);
+           // thread T2 has to run every 2 time periods
+           if((j % 2) == 0){
+            sem_post(semaphore_2);
+           }
+           // thread T3 has to run every 4 time periods
+           if((j % 4) == 0){
+            sem_post(semaphore_3);
+           }
+           // thread T4 has to run every 16 time periods
+           if((j % 16) == 0){
+            sem_post(semaphore_4);
+           }
+           usleep(timePeriodInMilliseconds*1000);
+       }
   }
+  run = false; // believe assignment of bool is atomic (otherwise, need mutex)
+    cout << "exiting scheduler " << endl << flush;
+    cout << "T1 Iterations: " << countIterations1 << endl << flush;
+    cout << "T2 Iterations: " << countIterations2 << endl << flush;
+    cout << "T3 Iterations: " << countIterations3 << endl << flush;
+    cout << "T4 Iterations: " << countIterations4 << endl << flush;
   pthread_exit(NULL);
 }
 
 void* T1 (void*arg)
 {
-    cout << "In thread1" << endl;
-    //pthread_cond_wait(&cond1, &Lock1);
     while(run){
         sem_wait(semaphore_1);
         // TODO: sem_wait and wait on the semaphore id
         cout << "Thread 1 \n";
-        cout << "Are we changing anything? \n";
+        countIterations1++;
     }
     pthread_exit(NULL);
 }
 
 void* T2 (void*arg)
 {
-    cout << "In thread2" << endl;
-  //pthread_cond_wait(&cond2, &Lock2);
     while(run){
       sem_wait(semaphore_2);
       cout << "Thread 2 \n";
-      //pthread_mutex_unlock(&Lock3);
+      countIterations2++;
     }
   pthread_exit(NULL);
 }
 
 void* T3 (void*arg)
 {
-    cout << "In thread3" << endl;
-  //pthread_cond_wait(&cond3, &Lock3);
     while(run){
       sem_wait(semaphore_3);
       cout << "Thread 3 \n";
-      //pthread_mutex_unlock(&Lock4);
+      countIterations3++;
     }
   pthread_exit(NULL);
 }
 
 void* T4 (void*arg)
 {
-    cout << "In thread4" << endl;
-  //pthread_cond_wait(&cond4, &Lock4);
     while(run){
       sem_wait(semaphore_4);
       cout << "Thread 4 \n";
-      //pthread_mutex_unlock(&Lock1);
+        countIterations4++;
     }
   pthread_exit(NULL);
 }
 
 void doWork()
 {
-  int matrix[10][10]; 
+  int matrix[10][10];
   //randomly generate a matrix to "do work" on
   for(int i = 0;i < 10;++i)
   {
     for(int j = 0;j < 10;++j)
     {
-      matrix[i][j] = rand() % 10 + 1; 
+      matrix[i][j] = rand() % 10 + 1;
     }
   }
 
-  int startingValue1, startingValue2; 
+  int startingValue1, startingValue2;
   //iterate through and set the values
   for(int i = 0; i < 10; ++i)
   {
-    startingValue1 = 0; 
-    startingValue2 = 5; 
+    startingValue1 = 0;
+    startingValue2 = 5;
     while(startingValue1 < 5)
     {
-      matrix[i][startingValue1] *= matrix[i][startingValue2]; 
-      matrix[i][startingValue2] = matrix[i][startingValue1]; 
-      startingValue1++; 
-      startingValue2++; 
-    }    
+      matrix[i][startingValue1] *= matrix[i][startingValue2];
+      matrix[i][startingValue2] = matrix[i][startingValue1];
+      startingValue1++;
+      startingValue2++;
+    }
   }
 }
 
