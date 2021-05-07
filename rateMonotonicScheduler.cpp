@@ -17,6 +17,17 @@ int countIterations1 = 0;
 int countIterations2 = 0;
 int countIterations3 = 0;
 int countIterations4 = 0;
+int doWorkT1 = 1;
+int doWorkT2 = 2;
+int doWorkT3 = 4;
+int doWorkT4 = 16;
+int dWT1 = 0;
+int dWT2 = 0;
+int dWT3 = 0;
+int dWT4 = 0;
+
+
+
 
 pthread_mutex_t Lock1, Lock2, Lock3, Lock4;
 
@@ -37,15 +48,15 @@ int fifo_min_priority = sched_get_priority_min(SCHED_FIFO);
 bool run = true;
 
     int main(int argc, const char * argv[]) {
-    // cpu id:: identifies the cup that you are going to run
+    // cpu id:: identifies the cpu that you are going to run
     int cpuID = 0;
-    
+
     // Set all to 0, because scheduler will go first and set them to 1
     semaphore_1 = sem_open("/semaphore_1",O_CREAT, S_IRUSR | S_IWUSR, 0);
     semaphore_2 = sem_open("/semaphore_2",O_CREAT, S_IRUSR | S_IWUSR, 0);
     semaphore_3 = sem_open("/semaphore_3",O_CREAT, S_IRUSR | S_IWUSR, 0);
     semaphore_4 = sem_open("/semaphore_4",O_CREAT, S_IRUSR | S_IWUSR, 0);
-    
+
    // Thread 1
         pthread_t ptid1, ptid2, ptid3, ptid4, scheduler1;
         // The code below ensures that the threads each have a priority assigned to them
@@ -72,11 +83,11 @@ bool run = true;
            // adds the cpu set to the threads attributes
            pthread_attr_setaffinity_np(&thread_scheduler_attribute1, sizeof(cpu_set_t), &cpu_set);
 #endif
-        
+
     if (pthread_create(&ptid1, &thread_scheduler_attribute1, T1,NULL) != 0)
             printf("Failed to create thread1\n");
-        
-        
+
+
     // Thread 2
         pthread_attr_t thread_scheduler_attribute2;
         pthread_attr_init(&thread_scheduler_attribute2);
@@ -101,10 +112,10 @@ bool run = true;
            pthread_attr_setaffinity_np(&thread_scheduler_attribute2, sizeof(cpu_set_t), &cpu_set);
 #endif
     if (pthread_create(&ptid2, &thread_scheduler_attribute2, T2,NULL) != 0)
-            printf("Failed to create thread1\n");
-        
-        
-        
+            printf("Failed to create thread2\n");
+
+
+
     // Thread 3
         pthread_attr_t thread_scheduler_attribute3;
         pthread_attr_init(&thread_scheduler_attribute3);
@@ -129,9 +140,9 @@ bool run = true;
            pthread_attr_setaffinity_np(&thread_scheduler_attribute3, sizeof(cpu_set_t), &cpu_set);
 #endif
     if (pthread_create(&ptid3, &thread_scheduler_attribute3, T3,NULL) != 0)
-            printf("Failed to create thread1\n");
-        
-        
+            printf("Failed to create thread3\n");
+
+
     // Thread 4
         pthread_attr_t thread_scheduler_attribute4;
         pthread_attr_init(&thread_scheduler_attribute4);
@@ -156,9 +167,9 @@ bool run = true;
            pthread_attr_setaffinity_np(&thread_scheduler_attribute4, sizeof(cpu_set_t), &cpu_set);
 #endif
     if (pthread_create(&ptid4, &thread_scheduler_attribute4, T4,NULL) != 0)
-            printf("Failed to create thread1\n");
-        
-        
+            printf("Failed to create thread4\n");
+
+
     // Thread Scheduler
         pthread_attr_t thread_scheduler_attributeS;
         pthread_attr_init(&thread_scheduler_attributeS);
@@ -184,8 +195,8 @@ bool run = true;
            pthread_attr_setaffinity_np(&thread_scheduler_attributeS, sizeof(cpu_set_t), &cpu_set);
 #endif
     if (pthread_create(&scheduler1, &thread_scheduler_attributeS, Scheduler,NULL) != 0)
-            printf("Failed to create thread1\n");
-        
+            printf("Failed to create threadS\n");
+
     // join threads
     pthread_join(ptid1,NULL);
     pthread_join(ptid2,NULL);
@@ -226,6 +237,11 @@ void* Scheduler (void*arg)
            usleep(timePeriodInMilliseconds*1000);
        }
   }
+  cout << "doWork ran: " << dWT1 << " times for T1." << endl;
+  cout << "doWork ran: " << dWT2 << " times for T2." << endl;
+  cout << "doWork ran: " << dWT3 << " times for T3." << endl;
+  cout << "doWork ran: " << dWT4 << " times for T4." << endl;
+
   run = false; // believe assignment of bool is atomic (otherwise, need mutex)
     cout << "exiting scheduler " << endl << flush;
     cout << "T1 Iterations: " << countIterations1 << endl << flush;
@@ -241,6 +257,10 @@ void* T1 (void*arg)
         sem_wait(semaphore_1);
         // TODO: sem_wait and wait on the semaphore id
         cout << "Thread 1 \n";
+        for(int i = 0; i < doWorkT1; i++){
+          doWork();
+          dWT1++;
+        }
         countIterations1++;
     }
     pthread_exit(NULL);
@@ -251,8 +271,13 @@ void* T2 (void*arg)
     while(run){
       sem_wait(semaphore_2);
       cout << "Thread 2 \n";
+      for(int i = 0; i < doWorkT2; i++){
+        doWork();
+        dWT2++;
+      }
       countIterations2++;
     }
+
   pthread_exit(NULL);
 }
 
@@ -261,8 +286,13 @@ void* T3 (void*arg)
     while(run){
       sem_wait(semaphore_3);
       cout << "Thread 3 \n";
+      for(int i = 0; i < doWorkT3; i++){
+        doWork();
+        dWT3++;
+      }
       countIterations3++;
     }
+
   pthread_exit(NULL);
 }
 
@@ -271,8 +301,13 @@ void* T4 (void*arg)
     while(run){
       sem_wait(semaphore_4);
       cout << "Thread 4 \n";
-        countIterations4++;
+      for(int i = 0; i < doWorkT4; i++){
+        doWork();
+        dWT4++;
+      }
+      countIterations4++;
     }
+
   pthread_exit(NULL);
 }
 
@@ -303,4 +338,3 @@ void doWork()
     }
   }
 }
-
