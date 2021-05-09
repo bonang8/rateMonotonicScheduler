@@ -230,7 +230,6 @@ void* Scheduler (void*arg)
    {
        for(int j = 0; j < numTimeUnits; j++)
        {
-           // thread T1 has to run every time period
            if(doingWork1 == true) //we overran our time
            {
             overrun1++;
@@ -274,17 +273,16 @@ void* Scheduler (void*arg)
   cout << "doWork ran: " << dWT4 << " times for T4." << endl;
 
   run = false; // believe assignment of bool is atomic (otherwise, need mutex)
-    cout << "exiting scheduler " << endl << flush;
     cout << "T1 Iterations: " << countIterations1 << endl << flush;
     cout << "T2 Iterations: " << countIterations2 << endl << flush;
     cout << "T3 Iterations: " << countIterations3 << endl << flush;
     cout << "T4 Iterations: " << countIterations4 << endl << flush;
 
-    //printing the matrix from doWork()
-
-
-    exit(1); //This line is the only way to get the program to exit properly. 
-    //We believe this is due to the scheduler threat having high priority but aren't sure how to fix the problem.
+    // signal semaphores again to avoid deadlock
+    sem_post(semaphore_1);
+    sem_post(semaphore_2);
+    sem_post(semaphore_3);
+    sem_post(semaphore_4);
   pthread_exit(NULL);
 }
 
@@ -292,15 +290,18 @@ void* T1 (void*arg)
 {
     while(run){
         sem_wait(semaphore_1);
-        doingWork1 = true; 
+        // boolean set to true
+        doingWork1 = true;
         // TODO: sem_wait and wait on the semaphore id
         cout << "Thread 1 \n";
-        for(int i = 0; i < doWorkT1; i++){
-          doWork();
-          dWT1++;
+        if(run){
+            for(int i = 0; i < doWorkT1; i++){
+              doWork();
+              dWT1++;
+            }
+            countIterations1++;
         }
-        countIterations1++;
-        doingWork1 = false; 
+        // boolean set to false
     }
     pthread_exit(NULL);
 }
@@ -309,31 +310,32 @@ void* T2 (void*arg)
 {
     while(run){
       sem_wait(semaphore_2);
-      doingWork2 = true; 
+      doingWork2 = true;
       cout << "Thread 2 \n";
-      for(int i = 0; i < doWorkT2; i++){
-        doWork();
-        dWT2++;
-      }
-      countIterations2++;
-      doingWork2 = false; 
+        if(run){
+          for(int i = 0; i < doWorkT2; i++){
+            doWork();
+            dWT2++;
+          }
+          countIterations2++;
+        }
     }
 
   pthread_exit(NULL);
 }
-
 void* T3 (void*arg)
 {
     while(run){
       sem_wait(semaphore_3);
-      doingWork3 = true; 
+      doingWork3 = true;
       cout << "Thread 3 \n";
-      for(int i = 0; i < doWorkT3; i++){
-        doWork();
-        dWT3++;
-      }
-      countIterations3++;
-      doingWork3 = false; 
+        if(run){
+          for(int i = 0; i < doWorkT3; i++){
+            doWork();
+            dWT3++;
+          }
+          countIterations3++;
+        }
     }
 
   pthread_exit(NULL);
