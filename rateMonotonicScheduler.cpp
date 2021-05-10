@@ -2,7 +2,7 @@
 g++ rateMonotonicScheduler.cpp -pthread -o RMS -lrt
 ./RMS
 */
-
+#include <sys/time.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <thread>
@@ -57,6 +57,11 @@ int fifo_max_priority = sched_get_priority_max(SCHED_FIFO);
 int fifo_min_priority = sched_get_priority_min(SCHED_FIFO);
 //
 bool run = true;
+
+//values for the timer
+it_val.it_value.tv_sec = 0;
+it_val.it_value.tv_usec = 10000;
+it_val.it_interval = it_val.it_value;
 
     int main(int argc, const char * argv[]) {
     // cpu id:: identifies the cpu that you are going to run
@@ -214,9 +219,6 @@ bool run = true;
     pthread_join(ptid3,NULL);
     pthread_join(ptid4,NULL);
     pthread_join(scheduler1,NULL);
-    cout << "DEBUG\n";
-   //     usleep(100000);
-        cout << "exiting main" << endl << flush;
     return 0;
 }
 
@@ -290,16 +292,16 @@ void* T1 (void*arg)
 {
     while(run){
         sem_wait(semaphore_1);
-        // boolean set to true
-        doingWork1 = true;
         // TODO: sem_wait and wait on the semaphore id
-        cout << "Thread 1 \n";
         if(run){
+          // boolean set to true
+          doingWork1 = true;
             for(int i = 0; i < doWorkT1; i++){
               doWork();
               dWT1++;
             }
             countIterations1++;
+            doingWork1 = false;
         }
         // boolean set to false
     }
@@ -310,14 +312,15 @@ void* T2 (void*arg)
 {
     while(run){
       sem_wait(semaphore_2);
-      doingWork2 = true;
-      cout << "Thread 2 \n";
         if(run){
+          // boolean set to true
+          doingWork2 = true;
           for(int i = 0; i < doWorkT2; i++){
             doWork();
             dWT2++;
           }
           countIterations2++;
+          doingWork2 = false;
         }
     }
 
@@ -327,17 +330,17 @@ void* T3 (void*arg)
 {
     while(run){
       sem_wait(semaphore_3);
-      doingWork3 = true;
-      cout << "Thread 3 \n";
         if(run){
+          // boolean set to true
+          doingWork3 = true;
           for(int i = 0; i < doWorkT3; i++){
             doWork();
             dWT3++;
           }
           countIterations3++;
+          doingWork3 = false;
         }
     }
-
   pthread_exit(NULL);
 }
 
@@ -345,8 +348,9 @@ void* T4 (void*arg)
 {
     while(run){
       sem_wait(semaphore_4);
-      doingWork4 = true; 
-      cout << "Thread 4 \n";
+      if(run){
+      // boolean set to true
+      doingWork4 = true;
       for(int i = 0; i < doWorkT4; i++){
         doWork();
         dWT4++;
@@ -354,7 +358,7 @@ void* T4 (void*arg)
       countIterations4++;
       doingWork4 = false; 
     }
-
+  }
   pthread_exit(NULL);
 }
 
