@@ -1,10 +1,11 @@
-/* 
+/*
 g++ rateMonotonicScheduler.cpp -pthread -o RMS -lrt
 ./RMS
 */
 #include <sys/time.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <signal.h>
 #include <thread>
 #include <iostream>
 #include <chrono>
@@ -33,12 +34,12 @@ int dWT3 = 0;
 int dWT4 = 0;
 bool doingWork1 = false;
 bool doingWork2 = false;
-bool doingWork3 = false; 
-bool doingWork4 = false; 
-int overrun1 = 0; 
-int overrun2 = 0; 
-int overrun3 = 0; 
-int overrun4 = 0; 
+bool doingWork3 = false;
+bool doingWork4 = false;
+int overrun1 = 0;
+int overrun2 = 0;
+int overrun3 = 0;
+int overrun4 = 0;
 
 pthread_mutex_t Lock1, Lock2, Lock3, Lock4;
 
@@ -46,6 +47,7 @@ sem_t * semaphore_1 = NULL; // protects the shared resource
 sem_t * semaphore_2 = NULL; // may have to do with toggling back and forth
 sem_t * semaphore_3 = NULL; // protects the shared resource
 sem_t * semaphore_4 = NULL; // may have to do with toggling back and forth
+sem_t * semaphore_S = NULL; // used by timer to signal scheduler
 
 pthread_attr_t thread_scheduler_attribute;
 
@@ -55,24 +57,47 @@ pthread_attr_t thread_scheduler_attribute;
 // all priorities must be greater than the min priority
 int fifo_max_priority = sched_get_priority_max(SCHED_FIFO);
 int fifo_min_priority = sched_get_priority_min(SCHED_FIFO);
-//
+
 bool run = true;
+// mutex to protect boolean doingWork for each thread
+pthread_mutex_t mutex1;
+pthread_mutex_t mutex2;
+pthread_mutex_t mutex3;
+pthread_mutex_t mutex4;
 
-//values for the timer
-it_val.it_value.tv_sec = 0;
-it_val.it_value.tv_usec = 10000;
-it_val.it_interval = it_val.it_value;
-
-    int main(int argc, const char * argv[]) {
+// signal handler
+void signalHandler(int signum)
+{
+    //signal the scheduler to run
+    if (signum == SIGALRM)
+    {
+        sem_post(semaphore_S);
+    }
+}
+int main(int argc, const char * argv[]) {
+        
+    //values for the timer
+    struct itimerval it_val;
+    it_val.it_value.tv_sec = 0;
+    it_val.it_value.tv_usec = 100 * 1000; // 100 milliseconds
+    it_val.it_interval = it_val.it_value;
+        
     // cpu id:: identifies the cpu that you are going to run
     int cpuID = 0;
-
     // Set all to 0, because scheduler will go first and set them to 1
     semaphore_1 = sem_open("/semaphore_1",O_CREAT, S_IRUSR | S_IWUSR, 0);
     semaphore_2 = sem_open("/semaphore_2",O_CREAT, S_IRUSR | S_IWUSR, 0);
     semaphore_3 = sem_open("/semaphore_3",O_CREAT, S_IRUSR | S_IWUSR, 0);
     semaphore_4 = sem_open("/semaphore_4",O_CREAT, S_IRUSR | S_IWUSR, 0);
-
+    semaphore_S = sem_open("/semaphore_S",O_CREAT, S_IRUSR | S_IWUSR, 0);
+    
+    //set up signal handling
+    struct sigaction sigAct;
+    memset(&sigAct,0, sizeof(sigAct));
+    sigAct.sa_handler = signalHandler;
+    // assoc. an action with a signal
+    sigaction(SIGALRM, &sigAct, NULL);
+    
    // Thread 1
         pthread_t ptid1, ptid2, ptid3, ptid4, scheduler1;
         // The code below ensures that the threads each have a priority assigned to them
@@ -129,8 +154,6 @@ it_val.it_interval = it_val.it_value;
 #endif
     if (pthread_create(&ptid2, &thread_scheduler_attribute2, T2,NULL) != 0)
             printf("Failed to create thread2\n");
-
-
 
     // Thread 3
         pthread_attr_t thread_scheduler_attribute3;
@@ -210,9 +233,12 @@ it_val.it_interval = it_val.it_value;
            // adds the cpu set to the threads attributes
            pthread_attr_setaffinity_np(&thread_scheduler_attributeS, sizeof(cpu_set_t), &cpu_set5);
 #endif
+    // set up timer just before starting scheduler
+    setitimer(ITIMER_REAL, &it_val, NULL);
+    
     if (pthread_create(&scheduler1, &thread_scheduler_attributeS, Scheduler,NULL) != 0)
             printf("Failed to create threadS\n");
-
+    
     // join threads
     pthread_join(ptid1,NULL);
     pthread_join(ptid2,NULL);
@@ -232,36 +258,53 @@ void* Scheduler (void*arg)
    {
        for(int j = 0; j < numTimeUnits; j++)
        {
+           // scheduler waits until an SIGALRM is signaled by the interval timer
+           // The signal handler signals the semaphore_S to allow the scheduler to proceed
+           sem_wait(semaphore_S);
+           pthread_mutex_lock(&mutex1);
            if(doingWork1 == true) //we overran our time
            {
             overrun1++;
-           } 
+           }
+           pthread_mutex_unlock(&mutex1);
            sem_post(semaphore_1);
+           
            // thread T2 has to run every 2 time periods
            if((j % 2) == 0){
+             pthread_mutex_lock(&mutex2);
              if(doingWork2 == true) //we overran our time
               {
                 overrun2++;
-              } 
+              }
+             pthread_mutex_unlock(&mutex2);
             sem_post(semaphore_2);
            }
            // thread T3 has to run every 4 time periods
            if((j % 4) == 0){
+             pthread_mutex_lock(&mutex3);
              if(doingWork3 == true) //we overran our time
             {
               overrun3++;
-            } 
+            }
+             pthread_mutex_unlock(&mutex3);
             sem_post(semaphore_3);
            }
            // thread T4 has to run every 16 time periods
            if((j % 16) == 0){
+            pthread_mutex_lock(&mutex4);
              if(doingWork4 == true) //we overran our time
             {
               overrun4++;
-            } 
+            }
+            pthread_mutex_unlock(&mutex4);
             sem_post(semaphore_4);
            }
+#if defined (NEEDSLEEP)
+           // backup in case of problems with timer
+           // conditionally compiled. insert #define NEEDSLEEP above #if defined to
+           // activate
            usleep(timePeriodInMilliseconds*1000);
+#endif
        }
   }
   cout << "T1 missed it's deadline " << overrun1 << " times\n";
@@ -294,14 +337,17 @@ void* T1 (void*arg)
         sem_wait(semaphore_1);
         // TODO: sem_wait and wait on the semaphore id
         if(run){
-          // boolean set to true
-          doingWork1 = true;
+          pthread_mutex_lock(&mutex1);
+           doingWork1 = true;
+            pthread_mutex_unlock(&mutex1);
             for(int i = 0; i < doWorkT1; i++){
               doWork();
               dWT1++;
             }
             countIterations1++;
+            pthread_mutex_lock(&mutex1);
             doingWork1 = false;
+            pthread_mutex_unlock(&mutex1);
         }
         // boolean set to false
     }
@@ -314,13 +360,17 @@ void* T2 (void*arg)
       sem_wait(semaphore_2);
         if(run){
           // boolean set to true
+          pthread_mutex_lock(&mutex2);
           doingWork2 = true;
+          pthread_mutex_unlock(&mutex2);
           for(int i = 0; i < doWorkT2; i++){
             doWork();
             dWT2++;
           }
           countIterations2++;
+          pthread_mutex_lock(&mutex2);
           doingWork2 = false;
+          pthread_mutex_unlock(&mutex2);
         }
     }
 
@@ -332,13 +382,17 @@ void* T3 (void*arg)
       sem_wait(semaphore_3);
         if(run){
           // boolean set to true
+          pthread_mutex_lock(&mutex3);
           doingWork3 = true;
+          pthread_mutex_unlock(&mutex3);
           for(int i = 0; i < doWorkT3; i++){
             doWork();
             dWT3++;
           }
           countIterations3++;
+          pthread_mutex_lock(&mutex3);
           doingWork3 = false;
+          pthread_mutex_unlock(&mutex3);
         }
     }
   pthread_exit(NULL);
@@ -350,13 +404,17 @@ void* T4 (void*arg)
       sem_wait(semaphore_4);
       if(run){
       // boolean set to true
+      pthread_mutex_lock(&mutex4);
       doingWork4 = true;
+      pthread_mutex_unlock(&mutex4);
       for(int i = 0; i < doWorkT4; i++){
         doWork();
         dWT4++;
       }
       countIterations4++;
-      doingWork4 = false; 
+      pthread_mutex_lock(&mutex4);
+      doingWork4 = false;
+      pthread_mutex_unlock(&mutex4);
     }
   }
   pthread_exit(NULL);
