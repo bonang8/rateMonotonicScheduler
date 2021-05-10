@@ -2,6 +2,7 @@
 g++ rateMonotonicScheduler.cpp -pthread -o RMS -lrt
 ./RMS
 */
+#include <cstring> 
 #include <sys/time.h>
 #include <fcntl.h>
 #include <sys/stat.h>
