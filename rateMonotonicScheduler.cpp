@@ -2,11 +2,11 @@
 g++ rateMonotonicScheduler.cpp -pthread -o RMS -lrt
 ./RMS
 */
-#include <cstring> 
 #include <sys/time.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <cstring>
 #include <thread>
 #include <iostream>
 #include <chrono>
@@ -26,7 +26,7 @@ int countIterations2 = 0;
 int countIterations3 = 0;
 int countIterations4 = 0;
 int doWorkT1 = 100;
-int doWorkT2 = 200;
+int doWorkT2 = 200000;
 int doWorkT3 = 400;
 int doWorkT4 = 1600;
 int dWT1 = 0;
@@ -41,6 +41,7 @@ int overrun1 = 0;
 int overrun2 = 0;
 int overrun3 = 0;
 int overrun4 = 0;
+int signalHandlerCounter = 0; 
 
 pthread_mutex_t Lock1, Lock2, Lock3, Lock4;
 
@@ -73,6 +74,7 @@ void signalHandler(int signum)
     if (signum == SIGALRM)
     {
         sem_post(semaphore_S);
+        signalHandlerCounter++; 
     }
 }
 int main(int argc, const char * argv[]) {
@@ -80,7 +82,7 @@ int main(int argc, const char * argv[]) {
     //values for the timer
     struct itimerval it_val;
     it_val.it_value.tv_sec = 0;
-    it_val.it_value.tv_usec = 100 * 1000; // 100 milliseconds
+    it_val.it_value.tv_usec = 100 * 1000; // Now 10 sec// 100 milliseconds
     it_val.it_interval = it_val.it_value;
         
     // cpu id:: identifies the cpu that you are going to run
@@ -235,7 +237,7 @@ int main(int argc, const char * argv[]) {
            pthread_attr_setaffinity_np(&thread_scheduler_attributeS, sizeof(cpu_set_t), &cpu_set5);
 #endif
     // set up timer just before starting scheduler
-    setitimer(ITIMER_REAL, &it_val, NULL);
+    //asetitimer(ITIMER_REAL, &it_val, NULL);
     
     if (pthread_create(&scheduler1, &thread_scheduler_attributeS, Scheduler,NULL) != 0)
             printf("Failed to create threadS\n");
@@ -246,6 +248,24 @@ int main(int argc, const char * argv[]) {
     pthread_join(ptid3,NULL);
     pthread_join(ptid4,NULL);
     pthread_join(scheduler1,NULL);
+
+      //cout << "Thread 2 Sem Counter: " << counterSem2 << endl;
+  cout << "T1 missed it's deadline " << overrun1 << " times\n";
+  cout << "T2 missed it's deadline " << overrun2 << " times\n";
+  cout << "T3 missed it's deadline " << overrun3 << " times\n";
+  cout << "T4 missed it's deadline " << overrun4 << " times\n";
+
+  cout << "doWork ran: " << dWT1 << " times for T1." << endl;
+  cout << "doWork ran: " << dWT2 << " times for T2." << endl;
+  cout << "doWork ran: " << dWT3 << " times for T3." << endl;
+  cout << "doWork ran: " << dWT4 << " times for T4." << endl;
+
+   cout << "T1 Iterations: " << countIterations1 << endl << flush;
+    cout << "T2 Iterations: " << countIterations2 << endl << flush;
+    cout << "T3 Iterations: " << countIterations3 << endl << flush;
+    cout << "T4 Iterations: " << countIterations4 << endl << flush;
+
+    //cout << "Signal Handler ran " << signalHandlerCounter << " times. \n";
     return 0;
 }
 
@@ -255,13 +275,14 @@ void* Scheduler (void*arg)
     const int maxIterations = 10;
     const int numTimeUnits = 16;
     const int timePeriodInMilliseconds = 100;
+    int counterSem2 = 0;
   for(int i = 0; i < maxIterations; i++)
    {
        for(int j = 0; j < numTimeUnits; j++)
        {
            // scheduler waits until an SIGALRM is signaled by the interval timer
            // The signal handler signals the semaphore_S to allow the scheduler to proceed
-           sem_wait(semaphore_S);
+           //sem_wait(semaphore_S);
            pthread_mutex_lock(&mutex1);
            if(doingWork1 == true) //we overran our time
            {
@@ -279,6 +300,8 @@ void* Scheduler (void*arg)
               }
              pthread_mutex_unlock(&mutex2);
             sem_post(semaphore_2);
+             // PLACE COUNTER
+               counterSem2++;
            }
            // thread T3 has to run every 4 time periods
            if((j % 4) == 0){
@@ -300,6 +323,7 @@ void* Scheduler (void*arg)
             pthread_mutex_unlock(&mutex4);
             sem_post(semaphore_4);
            }
+#define NEEDSLEEP
 #if defined (NEEDSLEEP)
            // backup in case of problems with timer
            // conditionally compiled. insert #define NEEDSLEEP above #if defined to
@@ -308,27 +332,19 @@ void* Scheduler (void*arg)
 #endif
        }
   }
-  cout << "T1 missed it's deadline " << overrun1 << " times\n";
-  cout << "T2 missed it's deadline " << overrun2 << " times\n";
-  cout << "T3 missed it's deadline " << overrun3 << " times\n";
-  cout << "T4 missed it's deadline " << overrun4 << " times\n";
 
-  cout << "doWork ran: " << dWT1 << " times for T1." << endl;
-  cout << "doWork ran: " << dWT2 << " times for T2." << endl;
-  cout << "doWork ran: " << dWT3 << " times for T3." << endl;
-  cout << "doWork ran: " << dWT4 << " times for T4." << endl;
+  //THIS IS WHERE ALL THE PRINTS USED TO BE
+
 
   run = false; // believe assignment of bool is atomic (otherwise, need mutex)
-    cout << "T1 Iterations: " << countIterations1 << endl << flush;
-    cout << "T2 Iterations: " << countIterations2 << endl << flush;
-    cout << "T3 Iterations: " << countIterations3 << endl << flush;
-    cout << "T4 Iterations: " << countIterations4 << endl << flush;
+   
 
     // signal semaphores again to avoid deadlock
     sem_post(semaphore_1);
     sem_post(semaphore_2);
     sem_post(semaphore_3);
     sem_post(semaphore_4);
+    usleep(1000000);
   pthread_exit(NULL);
 }
 
@@ -368,7 +384,7 @@ void* T2 (void*arg)
             doWork();
             dWT2++;
           }
-          countIterations2++; // 130 
+          countIterations2++;
           pthread_mutex_lock(&mutex2);
           doingWork2 = false;
           pthread_mutex_unlock(&mutex2);
