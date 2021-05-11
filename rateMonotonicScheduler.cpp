@@ -26,7 +26,7 @@ int countIterations2 = 0;
 int countIterations3 = 0;
 int countIterations4 = 0;
 int doWorkT1 = 100;
-int doWorkT2 = 200000;
+int doWorkT2 = 200;
 int doWorkT3 = 400;
 int doWorkT4 = 1600;
 int dWT1 = 0;
@@ -368,7 +368,7 @@ void* T2 (void*arg)
             doWork();
             dWT2++;
           }
-          countIterations2++;
+          countIterations2++; // 130 
           pthread_mutex_lock(&mutex2);
           doingWork2 = false;
           pthread_mutex_unlock(&mutex2);
